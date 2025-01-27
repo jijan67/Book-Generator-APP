@@ -3,6 +3,12 @@
 ## Overview
 A sophisticated web application for generating realistic book information with advanced customization and beautiful design.
 
+## Author
+- [Jijanur Rahman](https://jijanurrahman.netlify.app)
+
+## 🔗Live Demo
+- [https://jijanurrahman-bga.netlify.app/](https://jijanurrahman.netlify.app)
+
 ## 🌟 Features
 
 ### 🎨 Modern Design
