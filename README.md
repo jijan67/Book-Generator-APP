@@ -7,7 +7,7 @@ A sophisticated web application for generating realistic book information with a
 - [Jijanur Rahman](https://jijanurrahman.netlify.app)
 
 ## 🔗Live Demo
-- [https://jijanurrahman-bga.netlify.app/](https://jijanurrahman.netlify.app)
+- [https://jijanurrahman-bga.netlify.app/](https://jijanurrahman-bga.netlify.app/)
 
 ## 🌟 Features
 
