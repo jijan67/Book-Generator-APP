@@ -1,325 +1,195 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import Select from 'react-select';
-import { CSVLink } from 'react-csv';
-import { BookGenerator } from './utils/BookGenerator';
-import { Book, RegionOption } from './types/BookTypes';
-import { 
-  ClipboardCopyIcon, 
-  RefreshCwIcon 
-} from 'lucide-react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import './App.css';
-
-const INITIAL_LOAD_COUNT = 20;
-const LOAD_MORE_BATCH = 10;
-
-const regionOptions: RegionOption[] = [
-  { 
-    value: 'en-US', 
-    label: 'English (USA)', 
-    language: 'en',
-    flag: 'https://flagcdn.com/w320/us.png'
-  },
-  { 
-    value: 'de-DE', 
-    label: 'German (Germany)', 
-    language: 'de',
-    flag: 'https://flagcdn.com/w320/de.png'
-  },
-  { 
-    value: 'bn-BD', 
-    label: 'Bangla (Bangladesh)', 
-    language: 'bn',
-    flag: 'https://flagcdn.com/w320/bd.png'
-  }
-];
+import { BookGenerator } from './utils/BookGenerator';
+import { Book, LocaleOption } from './types/BookTypes';
+import BookTable from './components/BookTable';
+import BookDetailsModal from './components/BookDetailsModal';
+import { exportToCsv } from './utils/csvExport';
 
 function App() {
+  const [seed, setSeed] = useState(Math.random().toString(36).substring(2, 15));
+  const [locale, setLocale] = useState<LocaleOption>('en-US');
+  const [avgLikes, setAvgLikes] = useState(5);
+  const [avgReviews, setAvgReviews] = useState(3);
+  
   const [books, setBooks] = useState<Book[]>([]);
-  const [selectedRegion, setSelectedRegion] = useState<RegionOption>(regionOptions[0]);
-  const [seed, setSeed] = useState<string>('');
-  const [avgLikes, setAvgLikes] = useState<number>(5);
-  const [avgReviews, setAvgReviews] = useState<number>(3);
-  const [viewMode, setViewMode] = useState<'table' | 'gallery'>('gallery');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
-  const [isExporting, setIsExporting] = useState<boolean>(false);
-  const [seedCopied, setSeedCopied] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<Book | null>(null);
+  const loaderRef = useRef<HTMLDivElement>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  const seedInputRef = useRef<HTMLInputElement>(null);
+  const generateMoreBooks = useCallback(() => {
+    if (isLoading) return;
 
-  const generateRandomSeed = useCallback(() => {
-    const timestamp = new Date().getTime().toString();
-    const randomPart = Math.random().toString(36).substring(2, 15);
-    return `${timestamp}-${randomPart}`;
-  }, []);
-
-  const handleCopySeed = useCallback(() => {
-    if (seedInputRef.current) {
-      seedInputRef.current.select();
-      document.execCommand('copy');
-      setSeedCopied(true);
-      setTimeout(() => setSeedCopied(false), 2000);
-    }
-  }, []);
-
-  const generateNewBooks = useCallback(() => {
     setIsLoading(true);
-    const currentSeed = generateRandomSeed();
-    setSeed(currentSeed);
-
-    const bookGenerator = new BookGenerator(
-      currentSeed, 
-      selectedRegion.value, 
-      avgLikes, 
-      avgReviews
-    );
-
-    const generatedBooks = bookGenerator.generateBooks(INITIAL_LOAD_COUNT, 0);
-    setBooks(generatedBooks);
-    setIsLoading(false);
-  }, [selectedRegion, avgLikes, avgReviews, generateRandomSeed]);
-
-  const loadInitialBooks = useCallback(() => {
-    if (books.length === 0) {
-      generateNewBooks();
+    const generator = new BookGenerator(seed, locale, avgLikes, avgReviews);
+    
+    // Get the last index of existing books to continue from
+    const lastIndex = books.length > 0 ? books[books.length - 1].index : 0;
+    const startPage = Math.floor(lastIndex / 20);
+    
+    // Generate 20 more books starting from the last index
+    const newBooks = generator.generateBooks(startPage, 20, lastIndex);
+    
+    // Ensure new books are added
+    if (newBooks.length > 0) {
+      setBooks(prevBooks => {
+        // Prevent duplicate books
+        const uniqueNewBooks = newBooks.filter(
+          newBook => !prevBooks.some(existingBook => existingBook.index === newBook.index)
+        );
+        return [...prevBooks, ...uniqueNewBooks];
+      });
     }
-  }, [books, generateNewBooks]);
+    
+    setIsLoading(false);
+  }, [seed, locale, avgLikes, avgReviews, books, isLoading]);
 
+  // Initial book generation and reset when configuration changes
   useEffect(() => {
-    loadInitialBooks();
-  }, [selectedRegion, loadInitialBooks]);
+    // Reset books when configuration changes
+    setBooks([]);
+    
+    // Generate initial 20 books
+    const generator = new BookGenerator(seed, locale, avgLikes, avgReviews);
+    const initialBooks = generator.generateBooks(0, 20);
+    setBooks(initialBooks);
+  }, [seed, locale, avgLikes, avgReviews]);
 
-  const loadMoreBooks = useCallback(() => {
-    setIsLoadingMore(true);
-    const bookGenerator = new BookGenerator(
-      seed, 
-      selectedRegion.value, 
-      avgLikes, 
-      avgReviews
+  // Infinite scrolling
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        const first = entries[0];
+        if (first.isIntersecting && !isLoading) {
+          generateMoreBooks();
+        }
+      },
+      { threshold: 0.1 } // Trigger when 10% of loader is visible
     );
 
-    const newBooks = bookGenerator.generateBooks(LOAD_MORE_BATCH, books.length);
-    setBooks(prevBooks => [...prevBooks, ...newBooks]);
-    setIsLoadingMore(false);
-  }, [seed, selectedRegion, avgLikes, avgReviews, books.length]);
+    const currentLoader = loaderRef.current;
+    if (currentLoader) {
+      observer.observe(currentLoader);
+      observerRef.current = observer;
+    }
 
-  const handleExportToCSV = useCallback(() => {
-    setIsExporting(true);
-    // Simulate a brief export process
-    setTimeout(() => {
-      setIsExporting(false);
-    }, 1000);
-  }, []);
+    return () => {
+      if (currentLoader && observerRef.current) {
+        observerRef.current.unobserve(currentLoader);
+      }
+    };
+  }, [generateMoreBooks, isLoading]);
 
-  const renderBookCard = (book: Book, index: number) => (
-    <div 
-      key={book.isbn} 
-      className="book-card" 
-      style={{ '--index': index } as React.CSSProperties}
-    >
-      <img 
-        src={book.details?.coverImage} 
-        alt={`Cover for ${book.title}`} 
-        onError={(e) => {
-          const target = e.target as HTMLImageElement;
-          target.src = 'https://via.placeholder.com/400x600.png?text=Book+Cover';
-        }}
-      />
-      <div className="book-details">
-        <h3>{book.title}</h3>
-        <p>Authors: {book.authors.join(', ')}</p>
-        <p>Publisher: {book.publisher}</p>
-        <div className="book-stats">
-          <span>ISBN: {book.isbn}</span>
-          <span>Likes: {book.details?.likes || 0}</span>
-        </div>
-        {book.details?.reviews.map((review, idx) => (
-          <div key={idx} className="review">
-            <p>{review.text}</p>
-            <small>- {review.author} (Rating: {review.rating}/5)</small>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  const handleRandomSeed = () => {
+    setSeed(Math.random().toString(36).substring(2, 15));
+  };
 
-  const booksToRender = useMemo(() => {
-    // Language-specific filtering
-    const languageFilteredBooks = books.filter(book => {
-      // Function to check if a name matches the selected language
-      const isNameInLanguage = (name: string) => {
-        switch (selectedRegion.language) {
-          case 'en':
-            // English names use Latin characters
-            return /^[A-Za-z\s]+$/.test(name);
-          case 'de':
-            // German names can include umlauts and special characters
-            return /^[A-Za-zÄÖÜäöüß\s]+$/.test(name);
-          case 'bn':
-            // Bangla names use Bengali script
-            return /^[আ-ৎ\s]+$/.test(name);
-          default:
-            return true;
-        }
-      };
+  const handleBookSelect = (book: Book) => {
+    setSelectedBook(book);
+  };
 
-      // Check if at least one author name matches the language
-      return book.authors.some(author => isNameInLanguage(author));
-    });
+  const handleCloseModal = () => {
+    setSelectedBook(null);
+  };
 
-    return viewMode === 'gallery' 
-      ? languageFilteredBooks 
-      : languageFilteredBooks.slice(0, Math.ceil(languageFilteredBooks.length / 3) * 3);
-  }, [books, viewMode, selectedRegion]);
-
-  const csvData = useMemo(() => 
-    booksToRender.map(book => ({
-      Index: book.index,
-      ISBN: book.isbn,
-      Title: book.title,
-      Authors: book.authors.join(', '),
-      Publisher: book.publisher,
-      Likes: book.details?.likes,
-      Reviews: book.details?.reviews.length
-    })), 
-  [booksToRender]);
-
-  const renderRegionSelect = () => (
-    <div className="control-group">
-      <label>Region</label>
-      <Select
-        value={selectedRegion}
-        onChange={(selected) => {
-          setSelectedRegion(selected as RegionOption);
-          // Reset seed to regenerate books with new locale
-          setSeed('');
-        }}
-        options={regionOptions}
-        formatOptionLabel={({ label, flag }) => (
-          <div className="region-option">
-            <img 
-              src={flag} 
-              alt={`${label} flag`} 
-              style={{ width: '30px', height: '20px', objectFit: 'cover' }} 
-            />
-            {label}
-          </div>
-        )}
-      />
-    </div>
-  );
-
-  const renderSeedInput = () => (
-    <div className="control-group">
-      <label>Seed</label>
-      <div className="seed-input-container">
-        <input 
-          ref={seedInputRef}
-          type="text" 
-          value={seed} 
-          onChange={(e) => setSeed(e.target.value)}
-          placeholder="Enter seed or leave blank for random"
-        />
-        <button 
-          className="seed-copy-btn"
-          onClick={handleCopySeed}
-          title="Copy Seed"
-        >
-          <ClipboardCopyIcon size={18} />
-        </button>
-        <button 
-          className="generate-random-seed"
-          onClick={() => setSeed(generateRandomSeed())}
-          title="Generate Random Seed"
-        >
-          <RefreshCwIcon size={18} />
-        </button>
-        {seedCopied && (
-          <div className="seed-status visible">
-            Seed copied to clipboard!
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  const handleCsvExport = () => {
+    exportToCsv(books, `books_${seed}_${locale}.csv`);
+  };
 
   return (
-    <div className="app-container">
-      <div className="controls-container">
-        {renderRegionSelect()}
-        {renderSeedInput()}
-        <div className="control-group">
-          <label>Average Likes (0-10)</label>
-          <input 
-            type="range" 
-            min="0" 
-            max="10" 
-            step="0.5"
-            value={avgLikes} 
-            onChange={(e) => setAvgLikes(parseFloat(e.target.value))}
-          />
-          <span>{avgLikes}</span>
+    <div className="App">
+      <div className="config-container">
+        <div className="locale-select">
+          <label>
+            Locale:
+            <select 
+              value={locale} 
+              onChange={(e) => {
+                // Reset books when locale changes
+                setBooks([]);
+                setLocale(e.target.value as LocaleOption);
+              }}
+            >
+              <option value="en-US">English (USA)</option>
+              <option value="de-DE">German (Germany)</option>
+              <option value="bn-BD">Bangla (Bangladesh)</option>
+            </select>
+          </label>
         </div>
-        <div className="control-group">
-          <label>Average Reviews (0-10)</label>
-          <input 
-            type="range" 
-            min="0" 
-            max="10" 
-            step="0.5"
-            value={avgReviews} 
-            onChange={(e) => setAvgReviews(parseFloat(e.target.value))}
-          />
-          <span>{avgReviews}</span>
+        
+        <div className="seed-input">
+          <label>
+            Seed:
+            <div className="seed-input-wrapper">
+              <input 
+                type="text" 
+                value={seed} 
+                onChange={(e) => setSeed(e.target.value)}
+                placeholder="Enter custom seed"
+              />
+              <button 
+                onClick={handleRandomSeed} 
+                className="seed-generate-btn"
+                title="Generate Random Seed"
+              >
+                🎲
+              </button>
+            </div>
+          </label>
         </div>
-      </div>
 
-      <div className="view-toggle">
-        <button 
-          className={viewMode === 'gallery' ? 'active' : ''} 
-          onClick={() => setViewMode('gallery')}
-        >
-          Gallery View
-        </button>
-        <button 
-          className={viewMode === 'table' ? 'active' : ''} 
-          onClick={() => setViewMode('table')}
-        >
-          Table View
-        </button>
-        <button 
-          className="generate-books-button"
-          onClick={generateNewBooks}
-        >
-          Generate New Books
-        </button>
-        <CSVLink 
-          data={csvData}
-          filename="generated_books.csv"
-          className={`export-button ${isExporting ? 'loading' : ''}`}
-          onClick={handleExportToCSV}
-        >
-          {isExporting ? 'Exporting...' : 'Export to CSV'}
-        </CSVLink>
-      </div>
+        <div className="likes-reviews-input">
+          <label>
+            Avg Likes: {avgLikes.toFixed(1)}
+            <input 
+              type="range" 
+              min="0" 
+              max="10" 
+              step="0.1" 
+              value={avgLikes} 
+              onChange={(e) => setAvgLikes(parseFloat(e.target.value))}
+            />
+          </label>
+          
+          <label>
+            Avg Reviews: {avgReviews.toFixed(1)}
+            <input 
+              type="range" 
+              min="0" 
+              max="10" 
+              step="0.1" 
+              value={avgReviews} 
+              onChange={(e) => setAvgReviews(parseFloat(e.target.value))}
+            />
+          </label>
+        </div>
 
-      <div className={`books-container ${viewMode}-view`}>
-        {booksToRender.map((book, index) => renderBookCard(book, index))}
-      </div>
-
-      <div style={{ textAlign: 'center', marginTop: '20px' }}>
-        {isLoading ? (
-          <p>Loading books...</p>
-        ) : (
+        <div className="export-container">
           <button 
-            onClick={loadMoreBooks} 
-            className={`load-more-button ${isLoadingMore ? 'loading' : ''}`}
-            disabled={isLoadingMore}
+            onClick={handleCsvExport}
+            className="csv-export-btn"
           >
-            {isLoadingMore ? 'Loading...' : 'Load More Books'}
+            Export to CSV
           </button>
-        )}
+        </div>
       </div>
+
+      <BookTable 
+        books={books} 
+        onBookSelect={handleBookSelect}
+      />
+
+      <div ref={loaderRef} className="loader">
+        {isLoading ? 'Loading more books...' : 'Scroll to load more books'}
+      </div>
+
+      {selectedBook && (
+        <BookDetailsModal 
+          book={selectedBook} 
+          onClose={handleCloseModal} 
+        />
+      )}
     </div>
   );
 }

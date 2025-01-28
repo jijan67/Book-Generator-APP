@@ -1,203 +1,246 @@
-import { faker as fakerEN } from '@faker-js/faker/locale/en';
-import { faker as fakerDE } from '@faker-js/faker/locale/de';
 import seedrandom from 'seedrandom';
-import { Book, BookDetails } from '../types/BookTypes';
+import { faker as fakerEN } from '@faker-js/faker/locale/en_US';
+import { faker as fakerDE } from '@faker-js/faker/locale/de';
+import { Book, BookDetails, BookReview, LocaleOption } from '../types/BookTypes';
 
 export class BookGenerator {
-  private localeValue: string;
-  private avgLikes: number;
-  private avgReviews: number;
-  private faker: typeof fakerEN;
-  private seed: string;
+  private rng: () => number;
+  private faker: any;
 
-  constructor(seed: string, locale: string, avgLikes: number, avgReviews: number) {
-    this.seed = seed;
-    this.localeValue = locale;
-    this.avgLikes = avgLikes;
-    this.avgReviews = avgReviews;
-    
-    // Select appropriate faker based on locale
+  constructor(
+    private seed: string, 
+    private locale: LocaleOption, 
+    private avgLikes: number, 
+    private avgReviews: number
+  ) {
+    // Combine seed with locale to ensure stability across different parameters
+    const combinedSeed = `${seed}-${locale}`;
+    this.rng = seedrandom(combinedSeed);
+
     switch(locale) {
       case 'de-DE':
         this.faker = fakerDE;
         break;
       case 'bn-BD':
-        this.faker = this.createBanglaFaker();
+        this.faker = fakerEN; // Fallback to English faker
         break;
       default:
         this.faker = fakerEN;
     }
   }
 
-  // Combine seed with page number for consistent generation
-  private combineSeedWithPage(pageNumber: number): string {
-    // Simple combination method: concatenate seed and page number
-    return `${this.seed}-page-${pageNumber}`;
+  private seededRandom(min: number, max: number, additionalSeed: string = ''): number {
+    const rng = seedrandom(`${this.seed}-${additionalSeed}-${this.avgLikes}-${this.avgReviews}`);
+    return Math.floor(rng() * (max - min + 1)) + min;
   }
 
-  private createBanglaFaker(): typeof fakerEN {
-    // Extensive Bangla-like name and text generation
+  private generateStableSeed(prefix: string, globalIndex: number): string {
+    // Create a stable seed that doesn't change with avgLikes or avgReviews
+    return `${this.seed}-${this.locale}-${prefix}-${globalIndex}`;
+  }
+
+  private generateCoverImage(globalIndex: number, pageNumber: number): string {
+    const categories = [
+      'abstract', 'nature', 'book', 'art', 'architecture', 
+      'fashion', 'technology', 'business', 'food', 'travel',
+      'city', 'people', 'animals', 'sports', 'music'
+    ];
+
+    // Create a unique seed for each book by combining multiple factors
+    const imageSeed = `${this.seed}-unique-cover-${globalIndex}-${pageNumber}-${this.locale}-${this.avgLikes}-${this.avgReviews}`;
+    
+    // Use a seeded random to select a category
+    const rng = seedrandom(imageSeed);
+    const categoryIndex = Math.floor(rng() * categories.length);
+    const selectedCategory = categories[categoryIndex];
+
+    // Generate a unique image URL with multiple randomization factors
+    const uniqueImageUrl = `https://picsum.photos/seed/${imageSeed}/300/450?${selectedCategory}`;
+
+    return uniqueImageUrl;
+  }
+
+  private generateBanglaTitle(globalIndex: number, wordCount: number): string {
+    const banglaTitleWords = [
+      'জীবন', 'প্রেম', 'সংগ্রাম', 'কাহিনী', 'আশা', 'সত্য', 'মুক্তি', 
+      'দুঃখ', 'আনন্দ', 'যাত্রা', 'সমাজ', 'মানুষ', 'বাংলা', 'কবিতা', 
+      'গল্প', 'উপন্যাস', 'ভালোবাসা', 'স্বাধীনতা', 'সংস্কৃতি', 'ইতিহাস'
+    ];
+
+    return Array.from({ length: wordCount }, (_, idx) => 
+      banglaTitleWords[this.seededRandom(0, banglaTitleWords.length - 1, `title-word-${globalIndex}-${idx}`)]
+    ).join(' ');
+  }
+
+  private generateBanglaAuthor(globalIndex: number): string {
+    const banglaSurnames = [
+      'আহমেদ', 'হাসান', 'রহমান', 'ইসলাম', 'খান', 'মাহমুদ', 'আলী', 'সরকার', 
+      'মিয়া', 'শেখ', 'কাজী', 'মল্লিক', 'পাল', 'দাস', 'চৌধুরী', 'বিশ্বাস', 
+      'গাজী', 'নাছির', 'সিকদার', 'তালুকদার', 'রাজা', 'বেগম', 'মন্ডল', 
+      'হাকিম', 'আক্তার', 'নিয়াজী', 'কুন্ডু', 'রায়', 'মুর্শিদ', 'সাহা'
+    ];
+
     const banglaFirstNames = [
-      'আমির', 'রাহুল', 'সুমন', 'রাজিব', 'নাসির', 
-      'মাহমুদ', 'আরিফ', 'সাকিব', 'রাসেল', 'তানভীর',
-      'আব্দুল', 'জাহিদ', 'রিয়াদ', 'মুশফিক', 'তৌহিদ'
+      'রাহিম', 'কামাল', 'আমিন', 'সাদিক', 'জাহিদ', 'নাসির', 'তৌহিদ', 
+      'আকবর', 'মাসুদ', 'সাইফুল', 'রবি', 'সুমন', 'আরিফ', 'মাহিন', 
+      'সাকিব', 'রাজিব', 'আসিফ', 'রাফি', 'মিলন', 'সাগর', 'রাকিব', 
+      'নাঈম', 'ফারহাদ', 'জাকির', 'রাশেদ', 'তানভীর', 'শাকিল', 'রিয়াদ', 
+      'আমির', 'সাবিত'
     ];
-    const banglaLastNames = [
-      'হোসেন', 'আলী', 'খান', 'রহমান', 'ইসলাম', 
-      'মিয়া', 'সরকার', 'চৌধুরী', 'মন্ডল', 'শেখ',
-      'মাহমুদ', 'কাদের', 'মুন্সী', 'পাল', 'দাস'
+
+    // Use a stable seed that doesn't change with avgLikes or avgReviews
+    const rng = seedrandom(this.generateStableSeed('author', globalIndex));
+    
+    // Randomly select first name and surname
+    const firstNameIndex = Math.floor(rng() * banglaFirstNames.length);
+    const lastNameIndex = Math.floor(rng() * banglaSurnames.length);
+
+    return `${banglaSurnames[lastNameIndex]} ${banglaFirstNames[firstNameIndex]}`;
+  }
+
+  private generateBanglaPublisher(globalIndex: number): string {
+    const banglaSurnames = [
+      'আহমেদ', 'হাসান', 'রহমান', 'ইসলাম', 'খান', 'মাহমুদ', 'আলী', 'সরকার', 
+      'মিয়া', 'শেখ', 'কাজী', 'মল্লিক', 'পাল', 'দাস', 'চৌধুরী', 'বিশ্বাস', 
+      'গাজী', 'নাছির', 'সিকদার', 'তালুকদার', 'রাজা', 'বেগম', 'মন্ডল', 
+      'হাকিম', 'আক্তার', 'নিয়াজী', 'কুন্ডু', 'রায়', 'মুর্শিদ', 'সাহা'
     ];
-    const banglaTitles = [
-      'সোনার বাংলা', 'লাল মাটি', 'নীল আকাশ', 'সবুজ বন', 
-      'কালো রাত', 'সাদা দিন', 'লাল ফুল', 'নীল নদী',
-      'সবুজ পাহাড়', 'কালো পাখি'
+
+    const publisherTypes = [
+      'প্রকাশনী', 'বুক হাউস', 'লাইব্রেরি', 'সাহিত্য সংসদ', 
+      'গ্রন্থ প্রকাশ', 'সাহিত্য কেন্দ্র', 'বই বাজার', 'লেখক সংঘ'
     ];
-    const banglaPublishers = [
-      'বাংলা প্রকাশনী', 'সাহিত্য সংসদ', 'নতুন দিগন্ত', 
-      'আমার বই', 'জাতীয় গ্রন্থ কেন্দ্র', 'বাংলা ভাষা প্রকাশ'
-    ];
+
+    // Use a stable seed that doesn't change with avgLikes or avgReviews
+    const rng = seedrandom(this.generateStableSeed('publisher', globalIndex));
+    
+    // Randomly select surname and publisher type
+    const surnameIndex = Math.floor(rng() * banglaSurnames.length);
+    const publisherTypeIndex = Math.floor(rng() * publisherTypes.length);
+
+    return `${banglaSurnames[surnameIndex]} ${publisherTypes[publisherTypeIndex]}`;
+  }
+
+  private generateBookDetails(globalIndex: number, pageNumber: number): BookDetails {
+    // Add an extra layer of randomness to ensure different books across pages
+    const pageSeed = `-page-${pageNumber}`;
+    
+    const titleWordCount = this.seededRandom(2, 6, `title-count-${globalIndex}${pageSeed}`);
+    
+    let title: string;
+    let authors: string[];
+    let publisher: string;
+
+    switch(this.locale) {
+      case 'de-DE':
+        title = this.faker.lorem.words(titleWordCount);
+        authors = Array.from({ length: this.seededRandom(1, 3, `author-count-${globalIndex}${pageSeed}`) }, () => 
+          this.faker.person.fullName()
+        );
+        publisher = this.faker.company.name();
+        break;
+      case 'bn-BD':
+        title = this.generateBanglaTitle(globalIndex, titleWordCount);
+        authors = Array.from({ length: this.seededRandom(1, 3, `author-count-${globalIndex}${pageSeed}`) }, (_, idx) => 
+          this.generateBanglaAuthor(globalIndex + idx)
+        );
+        publisher = this.generateBanglaPublisher(globalIndex);
+        break;
+      default: // 'en-US'
+        title = this.faker.lorem.words(titleWordCount);
+        authors = Array.from({ length: this.seededRandom(1, 3, `author-count-${globalIndex}${pageSeed}`) }, () => 
+          this.faker.person.fullName()
+        );
+        publisher = this.faker.company.name();
+    }
 
     return {
-      ...fakerEN,
-      person: {
-        ...fakerEN.person,
-        fullName: () => {
-          const firstName = banglaFirstNames[Math.floor(Math.random() * banglaFirstNames.length)];
-          const lastName = banglaLastNames[Math.floor(Math.random() * banglaLastNames.length)];
-          return `${firstName} ${lastName}`;
-        }
-      },
-      company: {
-        ...fakerEN.company,
-        name: () => banglaPublishers[Math.floor(Math.random() * banglaPublishers.length)]
-      },
-      commerce: {
-        ...fakerEN.commerce,
-        productName: () => banglaTitles[Math.floor(Math.random() * banglaTitles.length)]
-      },
-      lorem: {
-        ...fakerEN.lorem,
-        paragraph: () => {
-          const sentences = [
-            'এটি একটি সাধারণ বাংলা অনুচ্ছেদ।', 
-            'বাংলাদেশ একটি সুন্দর দেশ।', 
-            'আমি বাংলা ভাষা ভালোবাসি।', 
-            'শিক্ষা হল জীবনের সবচেয়ে বড় সম্পদ।', 
-            'সকলের সাথে সম্প্রীতি ও ভালোবাসা রাখা উচিত।'
-          ];
-          return sentences[Math.floor(Math.random() * sentences.length)];
-        }
-      }
-    } as typeof fakerEN;
-  }
-
-  private generateISBN(): string {
-    const prefix = '978';
-    const group = Math.floor(Math.random() * 10).toString();
-    const publisher = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-    const title = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    const checkDigit = Math.floor(Math.random() * 10).toString();
-    return `${prefix}-${group}-${publisher}-${title}-${checkDigit}`;
-  }
-
-  private generateCoverImage(index: number): string {
-    const imageTypes = [
-      'abstract', 'nature', 'city', 'transport', 'fashion', 
-      'people', 'technics', 'animals', 'food', 'business'
-    ];
-    const imageType = imageTypes[Math.floor(Math.random() * imageTypes.length)];
-    
-    // Improved image generation with multiple fallback mechanisms
-    const imageServices = [
-      () => `https://picsum.photos/seed/${index * 10}/400/600`,
-      () => `https://placeimg.com/400/600/${imageType}?seed=${index}`,
-      () => `https://source.unsplash.com/400x600/?${imageType},book?sig=${index}`,
-      () => this.faker.image.urlLoremFlickr({ 
-        width: 400, 
-        height: 600, 
-        category: imageType 
-      }),
-      // Fallback placeholder image
-      () => `https://via.placeholder.com/400x600.png?text=Book+Cover`
-    ];
-
-    // Try each image service, return the first successful one
-    for (const imageGenerator of imageServices) {
-      try {
-        const imageUrl = imageGenerator();
-        return imageUrl;
-      } catch (error) {
-        console.warn(`Image generation failed: ${error}`);
-        continue;
-      }
-    }
-
-    // Final fallback if all image services fail
-    return `https://via.placeholder.com/400x600.png?text=Book+Cover`;
-  }
-
-  private generateReviews(
-    count: number, 
-    generator: () => number
-  ): { text: string; author: string; rating: number }[] {
-    const reviews: { text: string; author: string; rating: number }[] = [];
-    let actualCount = Math.floor(count);
-    const remainder = count - actualCount;
-
-    if (generator() < remainder) {
-      actualCount += 1;
-    }
-
-    for (let i = 0; i < actualCount; i++) {
-      reviews.push({
-        text: this.faker.lorem.paragraph(),
-        author: this.faker.person.fullName(),
-        rating: Math.max(1, Math.min(5, Math.round(generator() * 5)))
-      });
-    }
-
-    return reviews;
-  }
-
-  private generateBookDetails(index: number, generator: () => number): BookDetails {
-    // Language-specific like multipliers to create variation
-    const likeMultipliers: { [key: string]: number } = {
-      'en': 1.2,   // English books slightly more popular
-      'de': 1.0,   // German books standard popularity
-      'bn': 0.8    // Bangla books slightly less popular
-    };
-    const languageMultiplier = likeMultipliers[this.localeValue.slice(0, 2)] || 1;
-    
-    return {
-      coverImage: this.generateCoverImage(index),
-      reviews: this.generateReviews(this.avgReviews, generator),
-      likes: Math.max(0, Math.round(
-        generator() * 
-        this.avgLikes * 
-        20 * 
-        languageMultiplier
-      ))
+      isbn: this.generateISBN(globalIndex),
+      title,
+      authors,
+      publisher,
+      coverImage: this.generateCoverImage(globalIndex, pageNumber)
     };
   }
 
-  public generateBooks(count: number, startIndex: number): Book[] {
-    // Use combined seed for consistent generation across pages
-    const combinedSeed = this.combineSeedWithPage(Math.floor(startIndex / count) + 1);
-    const generator = seedrandom(combinedSeed);
+  private generateISBN(index: number): string {
+    const prefix = this.seededRandom(100, 999, `isbn-prefix-${index}`);
+    const body = this.seededRandom(10000, 99999, `isbn-body-${index}`);
+    const check = this.seededRandom(0, 9, `isbn-check-${index}`);
+    return `${prefix}-${body}-${check}`;
+  }
 
-    return Array.from({ length: count }, (_, i) => {
-      const index = startIndex + i + 1;
-      const book: Book = {
-        index,
-        isbn: this.generateISBN(),
-        title: this.faker.commerce.productName(),
-        authors: Array(1 + Math.floor(generator() * 3))
-          .fill(null)
-          .map(() => this.faker.person.fullName()),
-        publisher: this.faker.company.name(),
-        details: this.generateBookDetails(index, generator)
+  private generateReviews(globalIndex: number, pageNumber: number): BookReview[] {
+    const pageSeed = `-page-${pageNumber}`;
+    
+    let reviewTexts: string[];
+    switch(this.locale) {
+      case 'de-DE':
+        reviewTexts = [
+          'Ein wunderbares Buch', 
+          'Sehr inspirierend', 
+          'Hochinteressant', 
+          'Absolut fesselnd', 
+          'Eine großartige Lektüre'
+        ];
+        break;
+      case 'bn-BD':
+        reviewTexts = [
+          'অসাধারণ বই', 
+          'খুবই মজার', 
+          'গভীর অনুভূতি', 
+          'অনেক ভাল লাগলো', 
+          'চমৎকার লেখা'
+        ];
+        break;
+      default: // 'en-US'
+        reviewTexts = [
+          'An amazing book', 
+          'Highly inspiring', 
+          'Absolutely captivating', 
+          'A must-read', 
+          'Incredibly engaging'
+        ];
+    }
+
+    const reviewCount = this.probabilisticCount(this.avgReviews);
+    return Array.from({ length: reviewCount }, (_, reviewIndex) => ({
+      reviewer: this.generateReviewerName(),
+      text: reviewTexts[this.seededRandom(0, reviewTexts.length - 1, `review-text-${globalIndex}-${reviewIndex}${pageSeed}`)],
+      rating: this.seededRandom(1, 5, `rating-${globalIndex}-${reviewIndex}${pageSeed}`) / 5
+    }));
+  }
+
+  private generateReviewerName(): string {
+    switch(this.locale) {
+      case 'de-DE':
+        return this.faker.person.fullName();
+      case 'bn-BD':
+        return this.generateBanglaAuthor(0);
+      default: // 'en-US'
+        return this.faker.person.fullName();
+    }
+  }
+
+  private probabilisticCount(avgCount: number): number {
+    const randomValue = this.seededRandom(0, 100, 'prob-count') / 100;
+    return randomValue < avgCount % 1 ? Math.ceil(avgCount) : Math.floor(avgCount);
+  }
+
+  generateBooks(pageNumber: number, batchSize: number = 20, startIndex: number = 0): Book[] {
+    return Array.from({ length: batchSize }, (_, index) => {
+      // Calculate global index to continue from previous books
+      const globalIndex = startIndex + index;
+      const details = this.generateBookDetails(globalIndex, pageNumber);
+      const likes = this.probabilisticCount(this.avgLikes);
+      const reviews = this.generateReviews(globalIndex, pageNumber);
+
+      return {
+        index: globalIndex + 1, // Continuous index 
+        ...details,
+        likes,
+        reviews
       };
-      return book;
     });
   }
 }

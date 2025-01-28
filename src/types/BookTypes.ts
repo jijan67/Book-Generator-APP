@@ -1,27 +1,21 @@
-export interface RegionOption {
-  value: string;
-  label: string;
-  language: string;
-  flag?: string;  // Optional flag URL
-}
+export type LocaleOption = 'en-US' | 'de-DE' | 'bn-BD';
 
 export interface BookReview {
+  reviewer: string;
   text: string;
-  author: string;
   rating: number;
 }
 
 export interface BookDetails {
-  coverImage: string;
-  reviews: BookReview[];
-  likes: number;
-}
-
-export interface Book {
-  index: number;
   isbn: string;
   title: string;
   authors: string[];
   publisher: string;
-  details?: BookDetails;
+  coverImage: string;
+}
+
+export interface Book extends BookDetails {
+  index: number;
+  likes: number;
+  reviews: BookReview[];
 }
