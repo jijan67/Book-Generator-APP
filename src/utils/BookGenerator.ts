@@ -4,15 +4,14 @@ import seedrandom from 'seedrandom';
 import { Book, BookDetails } from '../types/BookTypes';
 
 export class BookGenerator {
-  private rng: () => number;
   private localeValue: string;
   private avgLikes: number;
   private avgReviews: number;
   private faker: typeof fakerEN;
+  private seed: string;
 
   constructor(seed: string, locale: string, avgLikes: number, avgReviews: number) {
-    const generator = seedrandom(seed);
-    this.rng = generator;
+    this.seed = seed;
     this.localeValue = locale;
     this.avgLikes = avgLikes;
     this.avgReviews = avgReviews;
@@ -23,77 +22,81 @@ export class BookGenerator {
         this.faker = fakerDE;
         break;
       case 'bn-BD':
-        // Custom Bangla-like generation using English faker
-        this.faker = {
-          ...fakerEN,
-          person: {
-            ...fakerEN.person,
-            fullName: () => {
-              const firstNames = [
-                'আমির', 'রাহুল', 'সুমন', 'রাজিব', 'নাসির', 
-                'মাহমুদ', 'আরিফ', 'সাকিব', 'রাসেল', 'তানভীর'
-              ];
-              const lastNames = [
-                'হোসেন', 'আলী', 'খান', 'রহমান', 'ইসলাম', 
-                'মিয়া', 'সরকার', 'চৌধুরী', 'মন্ডল', 'শেখ'
-              ];
-              return `${firstNames[Math.floor(this.rng() * firstNames.length)]} ${lastNames[Math.floor(this.rng() * lastNames.length)]}`;
-            }
-          },
-          company: {
-            ...fakerEN.company,
-            name: () => {
-              const companyTypes = [
-                'বাংলা', 'দেশী', 'আমার', 'সোনার', 'নতুন', 
-                'প্রগতি', 'জাতীয়', 'আন্তর্জাতিক'
-              ];
-              const companyNames = [
-                'কোম্পানি', 'ব্যবসা', 'সংস্থা', 'প্রতিষ্ঠান', 
-                'গ্রুপ', 'সমিতি'
-              ];
-              return `${companyTypes[Math.floor(this.rng() * companyTypes.length)]} ${companyNames[Math.floor(this.rng() * companyNames.length)]}`;
-            }
-          },
-          commerce: {
-            ...fakerEN.commerce,
-            productName: () => {
-              const adjectives = [
-                'সুন্দর', 'বড়', 'ছোট', 'পুরানো', 'নতুন', 
-                'লাল', 'সবুজ', 'নীল', 'সাদা', 'কালো'
-              ];
-              const nouns = [
-                'বই', 'কাগজ', 'কলম', 'কাপড়', 'জিনিস', 
-                'মাল', 'সম্পদ', 'উপহার', 'সংগ্রহ'
-              ];
-              return `${adjectives[Math.floor(this.rng() * adjectives.length)]} ${nouns[Math.floor(this.rng() * nouns.length)]}`;
-            }
-          },
-          lorem: {
-            ...fakerEN.lorem,
-            paragraph: () => {
-              const sentences = [
-                'এটি একটি সাধারণ বাংলা অনুচ্ছেদ।', 
-                'বাংলাদেশ একটি সুন্দর দেশ।', 
-                'আমি বাংলা ভাষা ভালোবাসি।', 
-                'শিক্ষা হল জীবনের সবচেয়ে বড় সম্পদ।', 
-                'সকলের সাথে সম্প্রীতি ও ভালোবাসা রাখা উচিত।'
-              ];
-              return sentences[Math.floor(this.rng() * sentences.length)];
-            }
-          }
-        } as typeof fakerEN;
+        this.faker = this.createBanglaFaker();
         break;
       default:
         this.faker = fakerEN;
     }
   }
 
+  // Combine seed with page number for consistent generation
+  private combineSeedWithPage(pageNumber: number): string {
+    // Simple combination method: concatenate seed and page number
+    return `${this.seed}-page-${pageNumber}`;
+  }
+
+  private createBanglaFaker(): typeof fakerEN {
+    // Extensive Bangla-like name and text generation
+    const banglaFirstNames = [
+      'আমির', 'রাহুল', 'সুমন', 'রাজিব', 'নাসির', 
+      'মাহমুদ', 'আরিফ', 'সাকিব', 'রাসেল', 'তানভীর',
+      'আব্দুল', 'জাহিদ', 'রিয়াদ', 'মুশফিক', 'তৌহিদ'
+    ];
+    const banglaLastNames = [
+      'হোসেন', 'আলী', 'খান', 'রহমান', 'ইসলাম', 
+      'মিয়া', 'সরকার', 'চৌধুরী', 'মন্ডল', 'শেখ',
+      'মাহমুদ', 'কাদের', 'মুন্সী', 'পাল', 'দাস'
+    ];
+    const banglaTitles = [
+      'সোনার বাংলা', 'লাল মাটি', 'নীল আকাশ', 'সবুজ বন', 
+      'কালো রাত', 'সাদা দিন', 'লাল ফুল', 'নীল নদী',
+      'সবুজ পাহাড়', 'কালো পাখি'
+    ];
+    const banglaPublishers = [
+      'বাংলা প্রকাশনী', 'সাহিত্য সংসদ', 'নতুন দিগন্ত', 
+      'আমার বই', 'জাতীয় গ্রন্থ কেন্দ্র', 'বাংলা ভাষা প্রকাশ'
+    ];
+
+    return {
+      ...fakerEN,
+      person: {
+        ...fakerEN.person,
+        fullName: () => {
+          const firstName = banglaFirstNames[Math.floor(Math.random() * banglaFirstNames.length)];
+          const lastName = banglaLastNames[Math.floor(Math.random() * banglaLastNames.length)];
+          return `${firstName} ${lastName}`;
+        }
+      },
+      company: {
+        ...fakerEN.company,
+        name: () => banglaPublishers[Math.floor(Math.random() * banglaPublishers.length)]
+      },
+      commerce: {
+        ...fakerEN.commerce,
+        productName: () => banglaTitles[Math.floor(Math.random() * banglaTitles.length)]
+      },
+      lorem: {
+        ...fakerEN.lorem,
+        paragraph: () => {
+          const sentences = [
+            'এটি একটি সাধারণ বাংলা অনুচ্ছেদ।', 
+            'বাংলাদেশ একটি সুন্দর দেশ।', 
+            'আমি বাংলা ভাষা ভালোবাসি।', 
+            'শিক্ষা হল জীবনের সবচেয়ে বড় সম্পদ।', 
+            'সকলের সাথে সম্প্রীতি ও ভালোবাসা রাখা উচিত।'
+          ];
+          return sentences[Math.floor(Math.random() * sentences.length)];
+        }
+      }
+    } as typeof fakerEN;
+  }
+
   private generateISBN(): string {
     const prefix = '978';
-    const group = Math.floor(this.rng() * 10).toString();
-    const publisher = Math.floor(this.rng() * 100000).toString().padStart(5, '0');
-    const title = Math.floor(this.rng() * 1000).toString().padStart(3, '0');
-    const checkDigit = Math.floor(this.rng() * 10).toString();
+    const group = Math.floor(Math.random() * 10).toString();
+    const publisher = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+    const title = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const checkDigit = Math.floor(Math.random() * 10).toString();
     return `${prefix}-${group}-${publisher}-${title}-${checkDigit}`;
   }
 
@@ -102,7 +105,7 @@ export class BookGenerator {
       'abstract', 'nature', 'city', 'transport', 'fashion', 
       'people', 'technics', 'animals', 'food', 'business'
     ];
-    const imageType = imageTypes[Math.floor(this.rng() * imageTypes.length)];
+    const imageType = imageTypes[Math.floor(Math.random() * imageTypes.length)];
     
     // Improved image generation with multiple fallback mechanisms
     const imageServices = [
@@ -133,12 +136,15 @@ export class BookGenerator {
     return `https://via.placeholder.com/400x600.png?text=Book+Cover`;
   }
 
-  private generateReviews(count: number): { text: string; author: string; rating: number }[] {
+  private generateReviews(
+    count: number, 
+    generator: () => number
+  ): { text: string; author: string; rating: number }[] {
     const reviews: { text: string; author: string; rating: number }[] = [];
     let actualCount = Math.floor(count);
     const remainder = count - actualCount;
 
-    if (this.rng() < remainder) {
+    if (generator() < remainder) {
       actualCount += 1;
     }
 
@@ -146,32 +152,27 @@ export class BookGenerator {
       reviews.push({
         text: this.faker.lorem.paragraph(),
         author: this.faker.person.fullName(),
-        rating: Math.max(1, Math.min(5, Math.round(this.rng() * 5)))
+        rating: Math.max(1, Math.min(5, Math.round(generator() * 5)))
       });
     }
 
     return reviews;
   }
 
-  private generateBookDetails(index: number): BookDetails {
+  private generateBookDetails(index: number, generator: () => number): BookDetails {
     // Language-specific like multipliers to create variation
     const likeMultipliers: { [key: string]: number } = {
       'en': 1.2,   // English books slightly more popular
       'de': 1.0,   // German books standard popularity
       'bn': 0.8    // Bangla books slightly less popular
     };
-
-    // Determine the language from the current locale
-    const language = this.localeValue.split('-')[0];
-    
-    // Apply language-specific multiplier to likes
-    const languageMultiplier = likeMultipliers[language] || 1;
+    const languageMultiplier = likeMultipliers[this.localeValue.slice(0, 2)] || 1;
     
     return {
       coverImage: this.generateCoverImage(index),
-      reviews: this.generateReviews(this.avgReviews),
+      reviews: this.generateReviews(this.avgReviews, generator),
       likes: Math.max(0, Math.round(
-        this.rng() * 
+        generator() * 
         this.avgLikes * 
         20 * 
         languageMultiplier
@@ -180,17 +181,21 @@ export class BookGenerator {
   }
 
   public generateBooks(count: number, startIndex: number): Book[] {
+    // Use combined seed for consistent generation across pages
+    const combinedSeed = this.combineSeedWithPage(Math.floor(startIndex / count) + 1);
+    const generator = seedrandom(combinedSeed);
+
     return Array.from({ length: count }, (_, i) => {
       const index = startIndex + i + 1;
       const book: Book = {
         index,
         isbn: this.generateISBN(),
         title: this.faker.commerce.productName(),
-        authors: Array(1 + Math.floor(this.rng() * 3))
+        authors: Array(1 + Math.floor(generator() * 3))
           .fill(null)
           .map(() => this.faker.person.fullName()),
         publisher: this.faker.company.name(),
-        details: this.generateBookDetails(index)
+        details: this.generateBookDetails(index, generator)
       };
       return book;
     });

@@ -2,6 +2,7 @@ export interface RegionOption {
   value: string;
   label: string;
   language: string;
+  flag?: string;  // Optional flag URL
 }
 
 export interface BookReview {
