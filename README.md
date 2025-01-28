@@ -83,9 +83,6 @@ npm run build
 ## 📝 License
 MIT License
 
-## 👥 Contributors
-- Your Name
-
 ## 🙏 Acknowledgements
 - Faker.js
 - React Community
