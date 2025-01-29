@@ -88,8 +88,8 @@ export class BookGenerator {
       'আমির', 'সাবিত'
     ];
 
-    // Use a stable seed that doesn't change with avgLikes or avgReviews
-    const rng = seedrandom(this.generateStableSeed('author', globalIndex));
+    // Incorporate avgLikes and avgReviews into the seed to ensure different names when these change
+    const rng = seedrandom(`${this.seed}-${this.locale}-author-${globalIndex}-${this.avgLikes}-${this.avgReviews}`);
     
     // Randomly select first name and surname
     const firstNameIndex = Math.floor(rng() * banglaFirstNames.length);
@@ -111,8 +111,8 @@ export class BookGenerator {
       'গ্রন্থ প্রকাশ', 'সাহিত্য কেন্দ্র', 'বই বাজার', 'লেখক সংঘ'
     ];
 
-    // Use a stable seed that doesn't change with avgLikes or avgReviews
-    const rng = seedrandom(this.generateStableSeed('publisher', globalIndex));
+    // Incorporate avgLikes and avgReviews into the seed to ensure different names when these change
+    const rng = seedrandom(`${this.seed}-${this.locale}-publisher-${globalIndex}-${this.avgLikes}-${this.avgReviews}`);
     
     // Randomly select surname and publisher type
     const surnameIndex = Math.floor(rng() * banglaSurnames.length);
@@ -125,7 +125,10 @@ export class BookGenerator {
     // Add an extra layer of randomness to ensure different books across pages
     const pageSeed = `-page-${pageNumber}`;
     
-    const titleWordCount = this.seededRandom(2, 6, `title-count-${globalIndex}${pageSeed}`);
+    // Incorporate more factors into title word count generation
+    const titleWordCount = this.seededRandom(2, 6, 
+      `title-count-${globalIndex}${pageSeed}-${this.avgLikes}-${this.avgReviews}`
+    );
     
     let title: string;
     let authors: string[];
@@ -133,21 +136,41 @@ export class BookGenerator {
 
     switch(this.locale) {
       case 'de-DE':
-        title = this.faker.lorem.words(titleWordCount);
+        // Incorporate more randomness factors into title generation
+        const genreSeed = this.seededRandom(0, 5, `genre-${globalIndex}${pageSeed}`);
+        const genres = ['Science', 'History', 'Romance', 'Mystery', 'Fantasy', 'Biography'];
+        const selectedGenre = genres[genreSeed];
+        
+        title = `${selectedGenre}: ${this.faker.lorem.words(titleWordCount)}`;
         authors = Array.from({ length: this.seededRandom(1, 3, `author-count-${globalIndex}${pageSeed}`) }, () => 
           this.faker.person.fullName()
         );
         publisher = this.faker.company.name();
         break;
       case 'bn-BD':
-        title = this.generateBanglaTitle(globalIndex, titleWordCount);
+        // Use additional factors like avgLikes and avgReviews to influence title generation
+        const topicSeed = this.seededRandom(0, 5, `topic-${globalIndex}${pageSeed}-${this.avgLikes}`);
+        const topics = [
+          'জীবন কাহিনী', 'সমাজ সংস্কৃতি', 'প্রেম ও মুক্তি', 
+          'ঐতিহাসিক সংগ্রাম', 'আধুনিক চ্যালেঞ্জ', 'মানবিক অনুভূতি'
+        ];
+        const selectedTopic = topics[topicSeed];
+        
+        title = `${selectedTopic}: ${this.generateBanglaTitle(globalIndex, titleWordCount)}`;
         authors = Array.from({ length: this.seededRandom(1, 3, `author-count-${globalIndex}${pageSeed}`) }, (_, idx) => 
           this.generateBanglaAuthor(globalIndex + idx)
         );
         publisher = this.generateBanglaPublisher(globalIndex);
         break;
       default: // 'en-US'
-        title = this.faker.lorem.words(titleWordCount);
+        // Incorporate publication year and average likes into title generation
+        const currentYear = new Date().getFullYear();
+        const yearSeed = this.seededRandom(currentYear - 50, currentYear, `year-${globalIndex}${pageSeed}-${this.avgReviews}`);
+        const themeSeed = this.seededRandom(0, 5, `theme-${globalIndex}${pageSeed}-${this.avgLikes}`);
+        const themes = ['Modern', 'Classic', 'Contemporary', 'Vintage', 'Emerging', 'Timeless'];
+        const selectedTheme = themes[themeSeed];
+        
+        title = `${selectedTheme} ${yearSeed}: ${this.faker.lorem.words(titleWordCount)}`;
         authors = Array.from({ length: this.seededRandom(1, 3, `author-count-${globalIndex}${pageSeed}`) }, () => 
           this.faker.person.fullName()
         );
