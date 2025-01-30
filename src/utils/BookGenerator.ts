@@ -122,59 +122,144 @@ export class BookGenerator {
   }
 
   private generateBookDetails(globalIndex: number, pageNumber: number): BookDetails {
-    // Add an extra layer of randomness to ensure different books across pages
-    const pageSeed = `-page-${pageNumber}`;
+    // Create a comprehensive seed that incorporates multiple factors
+    const currentYear = new Date().getFullYear();
+    const detailedSeed = `${this.seed}-${this.locale}-${globalIndex}-${pageNumber}-${this.avgLikes}-${this.avgReviews}-${currentYear}`;
     
-    // Incorporate more factors into title word count generation
-    const titleWordCount = this.seededRandom(2, 6, 
-      `title-count-${globalIndex}${pageSeed}-${this.avgLikes}-${this.avgReviews}`
-    );
+    // Use the detailed seed for all randomizations
+    const rng = seedrandom(detailedSeed);
     
     let title: string;
     let authors: string[];
     let publisher: string;
 
     switch(this.locale) {
-      case 'de-DE':
-        // Incorporate more randomness factors into title generation
-        const genreSeed = this.seededRandom(0, 5, `genre-${globalIndex}${pageSeed}`);
+      case 'de-DE': {
+        // Comprehensive seed-based generation for all book details
         const genres = ['Science', 'History', 'Romance', 'Mystery', 'Fantasy', 'Biography'];
-        const selectedGenre = genres[genreSeed];
         
-        title = `${selectedGenre}: ${this.faker.lorem.words(titleWordCount)}`;
-        authors = Array.from({ length: this.seededRandom(1, 3, `author-count-${globalIndex}${pageSeed}`) }, () => 
-          this.faker.person.fullName()
-        );
-        publisher = this.faker.company.name();
+        // Genre selection influenced by likes and reviews
+        const genreRng = seedrandom(`${detailedSeed}-genre-${this.avgLikes}-${this.avgReviews}`);
+        const genreIndex = Math.floor(genreRng() * genres.length);
+        const selectedGenre = genres[genreIndex];
+        
+        // Title generation with additional influences
+        const titleRng = seedrandom(`${detailedSeed}-title-${this.avgLikes}-${this.avgReviews}`);
+        const titleWordCount = Math.floor(titleRng() * (5 + Math.floor(this.avgLikes / 200))) + 2; // Word count influenced by likes
+        
+        // Use faker.lorem.words() to generate full title
+        const titleSeed = seedrandom(`${detailedSeed}-full-title-${this.avgReviews}`);
+        this.faker.seed(Math.floor(titleSeed() * 1000000));
+        const titleWords = this.faker.lorem.words(titleWordCount);
+        
+        // Title prefix based on likes and reviews with more nuanced selection
+        const prefixes = [
+          'Bestseller: ', 
+          'Popular: ', 
+          'Critically Acclaimed: ', 
+          'Emerging: ',
+          ''
+        ];
+        const prefixIndex = 
+          this.avgLikes > 1500 ? 0 : 
+          this.avgLikes > 1000 ? 1 : 
+          this.avgReviews > 200 ? 2 : 
+          this.avgLikes > 500 ? 3 : 4;
+        const titlePrefix = prefixes[prefixIndex];
+        
+        title = `${titlePrefix}${selectedGenre}: ${titleWords}`;
+        
+        // Author generation
+        const authorCountRng = seedrandom(`${detailedSeed}-authorcount-${this.avgReviews}`);
+        const authorCount = Math.floor(authorCountRng() * (3 + Math.floor(this.avgLikes / 300))) + 1;
+        authors = Array.from({ length: authorCount }, (_, i) => {
+          const firstNameRng = seedrandom(`${detailedSeed}-firstname-${i}-${this.avgLikes}`);
+          const lastNameRng = seedrandom(`${detailedSeed}-lastname-${i}-${this.avgReviews}`);
+          return `${this.faker.person.lastName({ random: lastNameRng })} ${this.faker.person.firstName({ random: firstNameRng })}`;
+        });
+        
+        // Publisher generation
+        const publisherRng = seedrandom(`${detailedSeed}-publisher-${this.avgLikes}-${this.avgReviews}`);
+        publisher = this.faker.company.name({ random: publisherRng });
         break;
+      }
       case 'bn-BD':
-        // Use additional factors like avgLikes and avgReviews to influence title generation
-        const topicSeed = this.seededRandom(0, 5, `topic-${globalIndex}${pageSeed}-${this.avgLikes}`);
+        // Existing Bangla generation logic
+        const topicSeed = this.seededRandom(0, 5, 
+          `topic-${globalIndex}${pageNumber}-${this.avgLikes}-${this.avgReviews}-${currentYear}`
+        );
         const topics = [
           'জীবন কাহিনী', 'সমাজ সংস্কৃতি', 'প্রেম ও মুক্তি', 
           'ঐতিহাসিক সংগ্রাম', 'আধুনিক চ্যালেঞ্জ', 'মানবিক অনুভূতি'
         ];
         const selectedTopic = topics[topicSeed];
         
-        title = `${selectedTopic}: ${this.generateBanglaTitle(globalIndex, titleWordCount)}`;
-        authors = Array.from({ length: this.seededRandom(1, 3, `author-count-${globalIndex}${pageSeed}`) }, (_, idx) => 
+        const banglaPrefix = 
+          this.avgLikes > 1500 ? 'সেরা বিক্রয়: ' : 
+          this.avgLikes > 1000 ? 'জনপ্রিয়: ' : 
+          this.avgReviews > 200 ? 'সমালোচক পছন্দ: ' : 
+          this.avgLikes > 500 ? 'আশাজনক: ' : '';
+        
+        title = `${banglaPrefix}${selectedTopic}: ${this.generateBanglaTitle(globalIndex, 
+          this.seededRandom(2, 6, `title-count-${globalIndex}${pageNumber}-${this.avgLikes}-${this.avgReviews}`)
+        )}`;
+        authors = Array.from({ length: this.seededRandom(1, 3, `author-count-${globalIndex}${pageNumber}`) }, (_, idx) => 
           this.generateBanglaAuthor(globalIndex + idx)
         );
         publisher = this.generateBanglaPublisher(globalIndex);
         break;
       default: // 'en-US'
-        // Incorporate publication year and average likes into title generation
-        const currentYear = new Date().getFullYear();
-        const yearSeed = this.seededRandom(currentYear - 50, currentYear, `year-${globalIndex}${pageSeed}-${this.avgReviews}`);
-        const themeSeed = this.seededRandom(0, 5, `theme-${globalIndex}${pageSeed}-${this.avgLikes}`);
+        // Comprehensive seed-based generation for all book details
         const themes = ['Modern', 'Classic', 'Contemporary', 'Vintage', 'Emerging', 'Timeless'];
-        const selectedTheme = themes[themeSeed];
         
-        title = `${selectedTheme} ${yearSeed}: ${this.faker.lorem.words(titleWordCount)}`;
-        authors = Array.from({ length: this.seededRandom(1, 3, `author-count-${globalIndex}${pageSeed}`) }, () => 
-          this.faker.person.fullName()
-        );
-        publisher = this.faker.company.name();
+        // Theme selection influenced by likes and reviews
+        const themeRng = seedrandom(`${detailedSeed}-theme-${this.avgLikes}-${this.avgReviews}`);
+        const themeIndex = Math.floor(themeRng() * themes.length);
+        const selectedTheme = themes[themeIndex];
+        
+        // Year generation influenced by likes
+        const yearRng = seedrandom(`${detailedSeed}-year-${this.avgLikes}-${this.avgReviews}`);
+        const yearSeed = Math.floor(yearRng() * 50) + (currentYear - 50 - Math.floor(this.avgLikes / 100));
+        
+        // Title generation with additional influences
+        const titleRng = seedrandom(`${detailedSeed}-title-${this.avgLikes}-${this.avgReviews}`);
+        const titleWordCount = Math.floor(titleRng() * (5 + Math.floor(this.avgLikes / 200))) + 2; // Word count influenced by likes
+        
+        // Use faker.lorem.words() to generate full title
+        const titleSeed = seedrandom(`${detailedSeed}-full-title-${this.avgReviews}`);
+        this.faker.seed(Math.floor(titleSeed() * 1000000));
+        const titleWords = this.faker.lorem.words(titleWordCount);
+        
+        // Title prefix based on likes and reviews with more nuanced selection
+        const prefixes = [
+          'Bestseller: ', 
+          'Popular: ', 
+          'Critically Acclaimed: ', 
+          'Emerging: ',
+          ''
+        ];
+        const prefixIndex = 
+          this.avgLikes > 1500 ? 0 : 
+          this.avgLikes > 1000 ? 1 : 
+          this.avgReviews > 200 ? 2 : 
+          this.avgLikes > 500 ? 3 : 4;
+        const titlePrefix = prefixes[prefixIndex];
+        
+        title = `${titlePrefix}${selectedTheme} ${yearSeed}: ${titleWords}`;
+        
+        // Author generation
+        const authorCountRng = seedrandom(`${detailedSeed}-authorcount-${this.avgReviews}`);
+        const authorCount = Math.floor(authorCountRng() * (3 + Math.floor(this.avgLikes / 300))) + 1;
+        authors = Array.from({ length: authorCount }, (_, i) => {
+          const firstNameRng = seedrandom(`${detailedSeed}-firstname-${i}-${this.avgLikes}`);
+          const lastNameRng = seedrandom(`${detailedSeed}-lastname-${i}-${this.avgReviews}`);
+          return `${this.faker.person.lastName({ random: lastNameRng })} ${this.faker.person.firstName({ random: firstNameRng })}`;
+        });
+        
+        // Publisher generation
+        const publisherRng = seedrandom(`${detailedSeed}-publisher-${this.avgLikes}-${this.avgReviews}`);
+        publisher = this.faker.company.name({ random: publisherRng });
+        break;
     }
 
     return {
@@ -258,12 +343,18 @@ export class BookGenerator {
       const likes = this.probabilisticCount(this.avgLikes);
       const reviews = this.generateReviews(globalIndex, pageNumber);
 
-      return {
+      const book: Book = {
         index: globalIndex + 1, // Continuous index 
-        ...details,
+        isbn: details.isbn,
+        title: details.title,
+        authors: details.authors,
+        publisher: details.publisher,
+        coverImage: details.coverImage,
         likes,
         reviews
       };
+
+      return book;
     });
   }
 }
