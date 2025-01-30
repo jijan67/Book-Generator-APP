@@ -57,7 +57,7 @@ A sophisticated web application for generating realistic book information with a
 2. Navigate to project directory
 3. Install dependencies
 ```bash
-npm install
+npm install --save-dev @babel/plugin-proposal-private-property-in-object
 ```
 
 ### Running the App
